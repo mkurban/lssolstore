@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package lsxcg.lss;
+
+//
+// Lotsize Solution Store Protocol
+//
+
+enum Error {
+	LSS_NOERR					= 0;
+	LSS_IOERR					= 1;
+	LSS_BADPROBLEMID	= 2;
+	LSS_BADSOLUTIONID	= 3;
+	LSS_BADBUCKETID		= 4;
+	LSS_BADTOKEN			= 5;
+	LSS_BADDATA				= 6;
+}
+
+// Generic msgs
+message ProblemIdentifier{
+	string	problem_id	= 1;
+};
+
+message ProblemEntityIdentifier{
+	string	problem_id	= 1;
+	string	entity_id		= 2;
+};
+
+message ProblemBucketIdentifier{
+	string	problem_id	= 1;
+	int32		bucket_idx	= 2;
+};
+
+
+// ReadProblem
+message ReadProblemRequest{
+	string problem_str	= 1;
+	string problem_file	= 2;
+};
+
+// LS Problem msgs
+message Product{
+	string	id						= 1;
+	string	name					= 2;
+	double	inv_unit_cost	= 3;
+};
+
+message Demand{
+	string	id 					= 1;
+	string	prod_id			= 2;
+	uint32	period_idx	= 3;
+	double	quantity		= 4;
+	double	unit_revenue= 5;
+};
+
+message Machine{
+	string							id 										= 1;
+	double							fixed_period_cost			= 2;
+	map<string, double>	produciton_rates			= 3;
+	map<string, double>	changeover_durations	= 4;
+};
+
+message Problem{
+	string						name					= 1;
+	uint32						num_periods		= 2;
+	uint32						period_length	= 3;
+	repeated Product	products 			= 4;
+	repeated Demand		demands 			= 5;
+	repeated Machine	machines 			= 6;
+};
+
+// Solution Improvement msgs
+message Column{
+	// BucketID
+	string											machine_id	= 1;
+	int32												bucket_idx	= 2;
+	double											margin			= 3;
+	map<string, double>					demands_ff	= 4;
+
+	message ProductInSequence{
+		string	product_id	= 1;
+		uint32	prod_start	= 2;
+		uint32	prod_minutes= 3;
+	};
+	repeated ProductInSequence	prods_seq		= 5;
+
+	bool	is_selected	= 6;
+	bool	is_fixed		= 7;
+};
+
+message Solution{
+	string						problem_id	= 1;
+	string						id 					= 2;
+	repeated	Column	columns			= 3;
+};
+
+message SolutionIDsList{
+	repeated string	ids = 1;
+};
+
+service LotsizeSolutionStore {
+	// Problem/Solution management
+	rpc ReadProblem(ReadProblemRequest) returns (ProblemIdentifier);
+	rpc CreateSolution(ProblemIdentifier) returns (ProblemEntityIdentifier);
+
+	// Solution Improvement
+	rpc GetProblem(ProblemIdentifier) returns (Problem);
+	rpc GetMachine(ProblemEntityIdentifier) returns (Machine);
+	rpc GetDemandsForBucket(ProblemBucketIdentifier) returns (stream Demand);
+	rpc GetSolutionsIDsList(ProblemIdentifier) returns (SolutionIDsList);
+	rpc GetSolution(ProblemEntityIdentifier) returns (Solution);
+
+	rpc SolutionImprovementStart(Solution) returns (Solution);
+	rpc SolutionImprovementColdsAdded(Solution) returns (Solution);
+	rpc SolutionImprovementStop(Solution) returns (Solution);
+};
